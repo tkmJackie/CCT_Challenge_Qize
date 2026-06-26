@@ -1,0 +1,26 @@
+name = "cct-quiz-auth-api"
+main = "worker.js"
+compatibility_date = "2026-06-26"
+
+# Cloudflare Dashboardで設定する場合、このファイルは参考用です。
+# KV namespace ID は自分の環境の値に置き換えてください。
+[[kv_namespaces]]
+binding = "CCT_PROGRESS"
+id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+[vars]
+# GitHub PagesのURLに置き換えてください。ローカル確認中は "*" でも動きます。
+ALLOWED_ORIGIN = "*"
+
+# 任意。設定すると、新規登録時に同じコードの入力が必要になります。
+# 未設定または空欄なら誰でも登録できます。
+REGISTRATION_CODE = ""
+
+# 任意。未設定なら 30 日です。
+TOKEN_TTL_DAYS = "30"
+
+# 任意。未設定なら 120000 回です。
+PASSWORD_ITERATIONS = "120000"
+
+# JWT_SECRET はSecretとして設定することを推奨します。
+# wrangler secret put JWT_SECRET
