@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCT Quiz Trainer | Login Sync</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">CCT Quiz Trainer</p>
+        <h1>CCT 統合クイズ学習アプリ</h1>
+        <p class="lead">既存問題とNew問題を混ぜてランダム出題します。問題文と選択肢は英語、解説は日本語です。3回連続正解した問題は出題範囲から除外されます。</p>
+        <p id="loginStatus" class="login-status">未ログイン：この端末だけに履歴を保存しています。</p>
+      </div>
+      <div class="hero-actions">
+        <button id="authOpenBtn" class="ghost" type="button">ログイン / 同期</button>
+        <button id="logoutBtn" class="ghost" type="button" hidden>ログアウト</button>
+        <button id="resetProgressBtn" class="ghost danger" type="button">学習履歴をリセット</button>
+      </div>
+    </header>
+
+    <section class="stats-grid primary-stats" aria-label="学習状況">
+      <article class="stat-card"><span class="stat-label">出題対象</span><strong id="remainingCount">0</strong><span class="stat-note">3回未満の問題</span></article>
+      <article class="stat-card"><span class="stat-label">3回正解</span><strong id="masteredCount">0</strong><span class="stat-note">出題範囲から除外</span></article>
+      <article class="stat-card"><span class="stat-label">今回の正答率</span><strong id="accuracyRate">0%</strong><span class="stat-note"><span id="sessionScore">0 / 0</span></span></article>
+      <article class="stat-card"><span class="stat-label">総問題数</span><strong id="totalCount">551</strong><span class="stat-note">既存 + New / 重複除外済み</span></article>
+    </section>
+
+    <section class="status-grid" aria-label="ステータス別問題数">
+      <article class="mini-card"><span>未解答</span><strong id="unansweredCount">0</strong></article>
+      <article class="mini-card returned"><span>戻り</span><strong id="returnedCount">0</strong></article>
+      <article class="mini-card"><span>1回正解</span><strong id="streak1Count">0</strong></article>
+      <article class="mini-card"><span>2回正解</span><strong id="streak2Count">0</strong></article>
+      <article class="mini-card mastered"><span>3回正解</span><strong id="streak3Count">0</strong></article>
+    </section>
+
+    <main class="quiz-card" id="quizCard">
+      <div class="quiz-topline">
+        <div>
+          <span id="questionMeta" class="pill">Question</span>
+          <span id="newBadge" class="pill new" hidden>New</span>
+          <span id="streakBadge" class="pill soft">連続正解 0 / 3</span>
+        </div>
+        <span id="categoryLabel" class="category-label"></span>
+      </div>
+
+      <h2 id="questionText" class="question-text"></h2>
+      <form id="choiceForm" class="choices" aria-label="選択肢"></form>
+
+      <div class="actions">
+        <button id="answerBtn" class="primary" type="button" disabled>回答する</button>
+        <button id="nextBtn" class="secondary" type="button" hidden>次の問題へ</button>
+      </div>
+
+      <section id="resultBox" class="result-box" hidden aria-live="polite">
+        <div class="result-heading">
+          <span id="resultIcon" class="result-icon"></span>
+          <div>
+            <h3 id="resultTitle"></h3>
+            <p id="correctAnswer"></p>
+          </div>
+        </div>
+        <div class="explanation">
+          <h4>解説</h4>
+          <div id="explanationText"></div>
+        </div>
+      </section>
+    </main>
+
+    <section id="completeCard" class="complete-card" hidden>
+      <h2>全問マスターしました！</h2>
+      <p>すべての問題が3回連続正解になりました。もう一度やり直す場合は、学習履歴をリセットしてください。</p>
+      <button id="completeResetBtn" class="primary" type="button">最初からやり直す</button>
+    </section>
+
+    <section class="dashboard-card" aria-label="学習ダッシュボード">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Dashboard</p>
+          <h2>学習状況ダッシュボード</h2>
+        </div>
+        <div class="dashboard-actions">
+          <button id="exportProgressBtn" class="secondary" type="button">履歴をJSON出力</button>
+          <label class="import-label">履歴を読み込み<input id="importProgressInput" type="file" accept="application/json" /></label>
+        </div>
+      </div>
+      <div class="progress-panel">
+        <div>
+          <span class="stat-label">マスター進捗</span>
+          <strong id="progressRate" class="progress-number">0%</strong>
+        </div>
+        <div class="progress-track"><span id="progressBar"></span></div>
+      </div>
+      <div class="dashboard-table-wrap">
+        <table class="dashboard-table">
+          <thead>
+            <tr>
+              <th>日付</th><th>解答数</th><th>正解</th><th>不正解</th><th>正答率</th><th>未解答</th><th>戻り</th><th>1回</th><th>2回</th><th>3回</th>
+            </tr>
+          </thead>
+          <tbody id="dailyTableBody"></tbody>
+        </table>
+      </div>
+      <p class="note">日次の未解答・戻り・1回・2回・3回は、その日の最後に回答した時点のスナップショットです。</p>
+    </section>
+
+    <section id="authPanel" class="auth-panel" hidden>
+      <div class="section-heading">
+        <div><p class="eyebrow">Account Sync</p><h2>ログイン / ユーザー登録</h2></div>
+        <button id="authCloseBtn" class="ghost" type="button">閉じる</button>
+      </div>
+      <p class="note">Cloudflare Workers + KV にユーザー登録情報と学習履歴JSONを保存します。ログインすると、別端末・別ブラウザでも同じ履歴を使えます。</p>
+
+      <div class="auth-common-grid">
+        <label class="token-field">Worker API URL<input id="workerUrl" type="url" placeholder="例: https://cct-quiz-auth.example.workers.dev" /></label>
+        <label class="checkbox-label"><input id="autoSync" type="checkbox" /> 回答後に自動保存する</label>
+      </div>
+
+      <div class="auth-tabs" role="tablist" aria-label="ログインと登録の切り替え">
+        <button id="loginTabBtn" class="auth-tab active" type="button">ログイン</button>
+        <button id="registerTabBtn" class="auth-tab" type="button">新規登録</button>
+      </div>
+
+      <div id="loginForm" class="auth-form">
+        <div class="auth-grid">
+          <label>User ID<input id="loginUserId" type="text" autocomplete="username" placeholder="例: takuma" /></label>
+          <label>Password<input id="loginPassword" type="password" autocomplete="current-password" placeholder="パスワード" /></label>
+        </div>
+        <div class="actions">
+          <button id="loginBtn" class="primary" type="button">ログイン</button>
+          <button id="testWorkerBtn" class="secondary" type="button">接続確認</button>
+          <button id="loadFromWorkerBtn" class="secondary" type="button">履歴を読み込み</button>
+          <button id="saveToWorkerBtn" class="secondary" type="button">履歴を保存</button>
+        </div>
+      </div>
+
+      <div id="registerForm" class="auth-form" hidden>
+        <div class="auth-grid">
+          <label>User ID<input id="registerUserId" type="text" autocomplete="username" placeholder="英数字・_・- / 3〜32文字" /></label>
+          <label>Password<input id="registerPassword" type="password" autocomplete="new-password" placeholder="8文字以上" /></label>
+          <label>Password Confirm<input id="registerPasswordConfirm" type="password" autocomplete="new-password" placeholder="もう一度入力" /></label>
+          <label>Registration Code<input id="registerCode" type="password" placeholder="設定している場合のみ入力" /></label>
+        </div>
+        <div class="actions">
+          <button id="registerBtn" class="primary" type="button">アカウントを作成</button>
+        </div>
+        <p class="note">Worker側に `REGISTRATION_CODE` を設定した場合は、登録時に同じコードが必要です。未設定なら空欄で登録できます。</p>
+      </div>
+
+      <div id="authStatus" class="sync-status"></div>
+    </section>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
